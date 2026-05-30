@@ -95,7 +95,7 @@ st.markdown("""
 }
 .hero-subtitle {
     font-size: 1.08rem; color: var(--text-secondary); font-weight: 500; line-height: 1.65;
-    max-width: 480px; margin: 0.6rem auto 0; text-align: center;
+    margin: 0.6rem 0 0; text-align: center !important;
 }
 .hero-subtitle strong { color: var(--accent); font-weight: 700; }
 
@@ -743,13 +743,15 @@ FREE_KEY, FREE_PROVIDER = get_free_secret()
 
 
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class='hero-section'>
-    <div class='hero-badge'>✿ for the message you keep rewriting</div>
-    <h1 class='hero-title'>The <span>Awkward</span> Translator</h1>
-    <p class='hero-subtitle'>Awkward, hard, or just stuck on how to say it?<br><strong>Tell me the gist — I'll give you 4 ways to say it. You just pick.</strong> ♡</p>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    "<div class='hero-section'>"
+    "<div class='hero-badge'>✿ for the message you keep rewriting</div>"
+    "<h1 class='hero-title'>The <span>Awkward</span> Translator</h1>"
+    "<p class='hero-subtitle'>Awkward, hard, or just stuck on how to say it?<br>"
+    "<strong>Tell me the gist — I'll give you 4 ways to say it. You just pick.</strong> ♡</p>"
+    "</div>",
+    unsafe_allow_html=True,
+)
 
 # ── Engine: use the shared free engine silently; only show a key field when needed ──
 call_spec = None
@@ -1017,10 +1019,11 @@ feedback_html = (
     f"💬 got an idea, or something feel off? tell me ↗</a></div>"
     if feedback_url else ""
 )
-st.markdown(f"""
-<div class='footer'>
-    {feedback_html}
-    <div style='margin-bottom:6px;'>The Awkward Translator · Built with strategic psychology</div>
-    <div style='color:var(--text-tertiary);'>Messages are processed in-session and never stored by this app.</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    "<div class='footer'>"
+    + feedback_html
+    + "<div style='margin-bottom:6px;'>The Awkward Translator · Built with strategic psychology</div>"
+    + "<div style='color:var(--text-tertiary);'>Messages are processed in-session and never stored by this app.</div>"
+    + "</div>",
+    unsafe_allow_html=True,
+)
