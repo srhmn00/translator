@@ -6,6 +6,7 @@ import json
 import re
 import os
 import datetime
+import urllib.request
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -437,8 +438,30 @@ try:
 except Exception:
     FREE_DAILY_CAP = int(os.environ.get("FREE_DAILY_CAP", "30"))
 
+OUTPUT_LANGUAGES = {
+    "English": "English",
+    "Same as I wrote": "__SAME__",
+    "한국어": "Korean",
+    "日本語": "Japanese",
+    "中文": "Chinese (Simplified)",
+    "Español": "Spanish",
+    "Français": "French",
+    "Deutsch": "German",
+    "Português": "Portuguese",
+    "Tiếng Việt": "Vietnamese",
+}
+
+
+def output_language_rule(choice):
+    target = OUTPUT_LANGUAGES.get(choice, "English")
+    if target == "__SAME__":
+        return ("OUTPUT LANGUAGE — detect the language the user wrote their situation in, and write "
+                "EVERY message in that SAME language (natural, native-level). Do not switch to English.")
+    return f"OUTPUT LANGUAGE — write EVERY message in natural, native-level {target}."
+
+
 SYSTEM_PROMPT_TEMPLATE = """You are an elite communication strategist and executive ghostwriter.
-Transform the user's difficult real-life situation into polished, native-sounding ENGLISH messages.
+Transform the user's difficult real-life situation into polished, native-sounding messages.
 
 CONTEXT
 - Intent: {intent}
@@ -447,13 +470,15 @@ CONTEXT
 - Target length: {length} — {length_desc}
 - Overall strength: {intensity}/100 (0 = very gentle, 100 = very strong / insistent)
 - Desired manner: {manner}
-- The user's raw brain-dump (any language; you ALWAYS reply in English). It mixes the facts, how they feel, the real reason, and how they want it to end — possibly including things they'd rather NOT say outright: {situation}
+- The user's raw brain-dump (this is the input — it may be written in any language). It mixes the facts, how they feel, the real reason, and how they want it to end — possibly including things they'd rather NOT say outright: {situation}
 
 TASK
 Write ONE message for EACH of the following approaches. Same intent and same length for all, but each must use a GENUINELY different strategy and register — they should read noticeably differently, not like paraphrases of one another:
 {approach_block}
 
-Every message must be fluent, natural English, reflect the desired manner ({manner}) and the overall strength of {intensity}/100. Calibrate tone to the recipient relationship. HIT THE TARGET LENGTH ({length}: {length_desc}) — but length means MORE CONCRETE SUBSTANCE, never more padding. The four can VARY in length and shape so they feel like real alternatives at a glance (e.g. one short and punchy, one fuller and warmer) — just don't let any feel cut off or unfinished mid-thought. Across the four variants, genuinely RANGE in directness: at least one names things plainly, and at least one stays gentle and high-level — getting the message across while softening or omitting the harsh specifics rather than itemizing them (graceful and face-saving). The reader picks how much to reveal just by switching tabs, so make that range real and obvious. ALWAYS return all four variants — one per approach, never fewer.
+{output_language_rule}
+
+Every message must be fluent and natural in that output language, reflect the desired manner ({manner}) and the overall strength of {intensity}/100. Calibrate tone to the recipient relationship. HIT THE TARGET LENGTH ({length}: {length_desc}) — but length means MORE CONCRETE SUBSTANCE, never more padding. The four can VARY in length and shape so they feel like real alternatives at a glance (e.g. one short and punchy, one fuller and warmer) — just don't let any feel cut off or unfinished mid-thought. Across the four variants, genuinely RANGE in directness: at least one names things plainly, and at least one stays gentle and high-level — getting the message across while softening or omitting the harsh specifics rather than itemizing them (graceful and face-saving). The reader picks how much to reveal just by switching tabs, so make that range real and obvious. ALWAYS return all four variants — one per approach, never fewer.
 
 OUTPUT — return ONLY valid JSON (no markdown fences, no preamble, no trailing text):
 {{
@@ -463,7 +488,7 @@ OUTPUT — return ONLY valid JSON (no markdown fences, no preamble, no trailing 
   ]
 }}
 
-STYLE — imitate the VOICE of these (examples span different situations on purpose, so copy the style, not the content). Models obey examples better than rules:
+STYLE — imitate the VOICE of these (examples span different situations on purpose, so copy the style, not the content; they're shown in English only to demonstrate the voice — apply the SAME plain, specific voice in the required output language). Models obey examples better than rules:
 ✗ WEAK — preamble + vague abstraction (never write like this):
    "I've been doing a lot of thinking, and I need to be honest with you about something that's been weighing on me."
 ✓ STRONG — opens on something real and concrete, plain words, no warm-up:
@@ -486,7 +511,7 @@ RULES
 6. Sound like a real, specific human texting — contractions, plain everyday words, a natural voice. Not a greeting card, not an advice column, not an HR email, not an AI. Never mention you are an AI; write as if you are the user.
 7. Never invent specifics the user didn't give, and never output bracketed placeholders like [name] or [date].
 8. This is a message, NOT a formal letter. No "Dear ..." salutations, no formal sign-offs, do not address the recipient by name. Start naturally ("Hi," / "Hey," is fine for casual relationships; very short texts can skip a greeting).
-9. English only. Return valid JSON only.
+9. Write everything in the required output language stated above. Return valid JSON only.
 """
 
 
@@ -821,8 +846,13 @@ rcp_rel = st.text_input("relationship", label_visibility="collapsed", key="rel_i
                         placeholder="relationship — e.g. my boss, my partner, the landlord, a close friend")
 
 # ── 3. The whole situation — just vent ──
-st.markdown("<div class='sec-label'><span class='num'>3</span>what's going on? <span class='opt'>· just vent — the facts, how you feel, how you'd like it to end. messy & any language is fine</span></div>",
+st.markdown("<div class='sec-label'><span class='num'>3</span>what's going on? <span class='opt'>· just vent — the facts, how you feel, how you'd like it to end. messy is fine</span></div>",
             unsafe_allow_html=True)
+st.markdown(
+    "<div style='font-size:13px;color:var(--accent);font-weight:700;margin:-2px 0 8px;'>"
+    "✍️ write in ANY language — 한국어 · 日本語 · Español · Français · 中文… then pick which language you want the result in below (English by default).</div>",
+    unsafe_allow_html=True,
+)
 situation = st.text_area("situation", label_visibility="collapsed", key="situation_input",
                          placeholder=("dump it all here, in any language — e.g.\n"
                                       "my friend borrowed money months ago and still hasn't paid me back. "
@@ -836,6 +866,10 @@ tone = st.radio("Tone", list(TONES.keys()), horizontal=True, key="tone_radio", l
 
 st.markdown("<div class='mini-label'>how long?</div>", unsafe_allow_html=True)
 length = st.radio("Length", list(LENGTHS.keys()), horizontal=True, key="length_radio", label_visibility="collapsed")
+
+st.markdown("<div class='mini-label'>reply in which language?</div>", unsafe_allow_html=True)
+out_lang_choice = st.selectbox("Output language", list(OUTPUT_LANGUAGES.keys()),
+                               index=0, key="outlang_select", label_visibility="collapsed")
 
 # base vibe per intent; intensity & manner come from the chosen tone
 vibe = INTENTS[selected_intent]["vibes"][0] if selected_intent else "Warm"
@@ -878,7 +912,7 @@ if generate_clicked and can_generate:
             intent=selected_intent, vibe=vibe, vibe_definition=VIBE_DEFINITIONS.get(vibe, vibe.lower()),
             length=length, length_desc=LENGTHS[length]["desc"], intensity=intensity, manner=manner,
             situation=situation.strip(), approach_block=approach_block,
-            relationship=rel_val,
+            relationship=rel_val, output_language_rule=output_language_rule(out_lang_choice),
         )
         user_message = (f"Intent: {selected_intent}. Recipient relationship: {rel_val}. "
                         f"Length: {length}. Manner: {manner}. "
@@ -1016,6 +1050,36 @@ if st.session_state.variants:
             st.markdown("<div class='coffee-btn'>", unsafe_allow_html=True)
             st.link_button("☕ Buy Me a Coffee", url=coffee_url, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ── FEEDBACK (in-app → Formspree → your email) ──
+feedback_endpoint = _conf("FEEDBACK_ENDPOINT")
+if feedback_endpoint:
+    st.markdown("<hr class='custom-divider'>", unsafe_allow_html=True)
+    with st.expander("💬 Leave feedback — ideas, bugs, what felt off (anything!)"):
+        st.markdown(
+            "<div style='font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:8px;'>"
+            "Thanks so much for using The Awkward Translator! 🙏 I hope it saved you from a few "
+            "<i>\"ugh, how do I even word this\"</i> moments. It's an early version built by one person, "
+            "so your honest feedback genuinely shapes what comes next — anything's welcome. ♡</div>",
+            unsafe_allow_html=True,
+        )
+        fb = st.text_area("feedback", key="fb_text", label_visibility="collapsed",
+                          placeholder="✍️ Write your feedback here — what worked, what felt off, an idea, a bug…",
+                          height=90, max_chars=1000)
+        if st.button("send ♡", key="fb_send", type="primary"):
+            if fb and fb.strip():
+                try:
+                    payload = json.dumps({"message": fb.strip()}).encode("utf-8")
+                    req = urllib.request.Request(
+                        feedback_endpoint, data=payload,
+                        headers={"Content-Type": "application/json", "Accept": "application/json"})
+                    urllib.request.urlopen(req, timeout=10)
+                    st.success("Thank you — got it! ♡")
+                except Exception:
+                    st.warning("Hmm, couldn't send that just now. Mind trying again in a moment?")
+            else:
+                st.info("Type something first ♡")
 
 
 # ── FOOTER ──
