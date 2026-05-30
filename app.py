@@ -1053,7 +1053,7 @@ if st.session_state.variants:
 
 
 # ── FEEDBACK (in-app → Formspree → your email) ──
-feedback_endpoint = _conf("FEEDBACK_ENDPOINT")
+feedback_endpoint = _conf("FEEDBACK_ENDPOINT", "https://formspree.io/f/xpqnnbyg")
 if feedback_endpoint:
     st.markdown("<hr class='custom-divider'>", unsafe_allow_html=True)
     with st.expander("💬 Leave feedback — ideas, bugs, what felt off (anything!)"):
