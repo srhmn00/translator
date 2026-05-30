@@ -7,6 +7,7 @@ import re
 import os
 import datetime
 import urllib.request
+import urllib.error
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -1073,11 +1074,20 @@ if feedback_endpoint:
                     payload = json.dumps({"message": fb.strip()}).encode("utf-8")
                     req = urllib.request.Request(
                         feedback_endpoint, data=payload,
-                        headers={"Content-Type": "application/json", "Accept": "application/json"})
-                    urllib.request.urlopen(req, timeout=10)
+                        headers={"Content-Type": "application/json",
+                                 "Accept": "application/json",
+                                 "User-Agent": "AwkwardTranslator/1.0"})
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        resp.read()
                     st.success("Thank you — got it! ♡")
-                except Exception:
-                    st.warning("Hmm, couldn't send that just now. Mind trying again in a moment?")
+                except urllib.error.HTTPError as e:
+                    try:
+                        detail = e.read().decode("utf-8", "ignore")[:400]
+                    except Exception:
+                        detail = ""
+                    st.warning(f"Couldn't send (HTTP {e.code}). {detail}")
+                except Exception as e:
+                    st.warning(f"Couldn't send right now: {type(e).__name__} — {e}")
             else:
                 st.info("Type something first ♡")
 
