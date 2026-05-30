@@ -155,6 +155,7 @@ st.markdown("""
 .stTextArea textarea {
     background: var(--bg-elevated) !important; border: 2px solid var(--border) !important;
     border-radius: var(--radius-md) !important; color: var(--text-primary) !important;
+    caret-color: var(--accent) !important;
     font-family: 'Quicksand', sans-serif !important; font-size: 15px !important; line-height: 1.6 !important;
     padding: 1rem !important; resize: none !important; transition: border-color 0.15s ease !important;
 }
@@ -294,6 +295,7 @@ st.markdown("""
 .stTextInput input {
     background: var(--bg-elevated) !important; border: 2px solid var(--border) !important;
     border-radius: 14px !important; color: var(--text-primary) !important;
+    caret-color: var(--accent) !important;
     font-family: 'Quicksand' !important; font-size: 14px !important; padding: 0.55rem 0.9rem !important;
 }
 .stTextInput input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-glow) !important; }
@@ -428,7 +430,12 @@ PROVIDERS = {
                   "models": ["claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"]},
 }
 
-FREE_DAILY_CAP = 5  # generations per browser session per day on the shared free engine
+# Per-browser-session daily cap on the shared free engine. Default 30 (generous for
+# low traffic, still limits abuse of the shared key). Override via Secrets/env: FREE_DAILY_CAP.
+try:
+    FREE_DAILY_CAP = int(st.secrets["FREE_DAILY_CAP"])
+except Exception:
+    FREE_DAILY_CAP = int(os.environ.get("FREE_DAILY_CAP", "30"))
 
 SYSTEM_PROMPT_TEMPLATE = """You are an elite communication strategist and executive ghostwriter.
 Transform the user's difficult real-life situation into polished, native-sounding ENGLISH messages.
@@ -446,7 +453,7 @@ TASK
 Write ONE message for EACH of the following approaches. Same intent and same length for all, but each must use a GENUINELY different strategy and register — they should read noticeably differently, not like paraphrases of one another:
 {approach_block}
 
-Every message must be fluent, natural English, reflect the desired manner ({manner}) and the overall strength of {intensity}/100. Calibrate tone to the recipient relationship. HIT THE TARGET LENGTH ({length}: {length_desc}) — but length means MORE CONCRETE SUBSTANCE, never more padding. A "Long" message is longer because it says more real, specific things, not because it adds preamble or repeats itself. ALL FOUR variants must be roughly the SAME length — do not let any one (especially the last) come out noticeably shorter than the others. Across the four variants, genuinely RANGE in directness: at least one names things plainly, and at least one stays gentle and high-level — getting the message across while softening or omitting the harsh specifics rather than itemizing them (graceful and face-saving). The reader picks how much to reveal just by switching tabs, so make that range real and obvious. ALWAYS return all four variants — one per approach, never fewer.
+Every message must be fluent, natural English, reflect the desired manner ({manner}) and the overall strength of {intensity}/100. Calibrate tone to the recipient relationship. HIT THE TARGET LENGTH ({length}: {length_desc}) — but length means MORE CONCRETE SUBSTANCE, never more padding. The four can VARY in length and shape so they feel like real alternatives at a glance (e.g. one short and punchy, one fuller and warmer) — just don't let any feel cut off or unfinished mid-thought. Across the four variants, genuinely RANGE in directness: at least one names things plainly, and at least one stays gentle and high-level — getting the message across while softening or omitting the harsh specifics rather than itemizing them (graceful and face-saving). The reader picks how much to reveal just by switching tabs, so make that range real and obvious. ALWAYS return all four variants — one per approach, never fewer.
 
 OUTPUT — return ONLY valid JSON (no markdown fences, no preamble, no trailing text):
 {{
@@ -604,7 +611,7 @@ def normalize_result(result: dict):
     """Return (detected_language, [variant, ...]) regardless of single/multi shape."""
     if isinstance(result.get("variants"), list) and result["variants"]:
         variants = []
-        for v in result["variants"][:3]:
+        for v in result["variants"][:4]:
             variants.append({
                 "label": v.get("label", "Balanced"),
                 "message": v.get("message", "").strip(),
